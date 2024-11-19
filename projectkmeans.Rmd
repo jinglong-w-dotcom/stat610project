@@ -8,3 +8,51 @@ date: "2024-11-19"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+```{r}
+# Compute centers for each cluster
+compute_centers <- function(X, cluster_assignments, K) {
+  centers <- matrix(NA, nrow = K, ncol = ncol(X))
+  for (k in 1:K) {
+    # Get the points in cluster k
+    cluster_points <- X[cluster_assignments == k, , drop = FALSE]
+    # Compute the mean for each feature (column)
+    centers[k, ] <- colMeans(cluster_points, na.rm = TRUE)
+  }
+  return(centers)
+}
+```
+
+
+```{r}
+k_means <- function(X, k, init_centers = NULL, max_iters = 100, tol = 1e-4) {
+  # Number of samples
+  n <- nrow(X)
+  
+  # Initialize centroids
+  if (is.null(init_centers)) {
+    # Randomly assign a cluster number to each observation
+    initial_clusters <- sample(1:K, size = n, replace = TRUE)
+    centers <- compute_centers(X, cluster_assignments, K)
+  } else {
+    centers <- init_centers
+  }
+  
+  for (i in 1:max_iters) {
+    # Compute distances from each point to the center of its cluster
+    distances <- as.matrix(dist(rbind(X, centers)))[1:n, (n+1):(n+k)]
+    
+    # Assign each point to the nearest center
+    labels <- apply(distances, 1, which.min)
+    
+    # Check for convergence (if centroids do not change much)
+    if (sum((new_centers - centers)^2) < tol) {
+      break
+    }
+    
+    centers <- new_centers
+  }
+  
+  return(list(centers = centers, labels = labels))
+}
+```
+
