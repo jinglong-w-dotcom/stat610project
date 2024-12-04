@@ -23,7 +23,25 @@ compute_centers <- function(X, cluster_assignments, K) {
 ```
 
 ```{r}
-compute_distances_to_center
+# Function to compute distances from each point to the center of its assigned cluster
+compute_distances_to_center <- function(X, labels, centers) {
+  n <- nrow(X)  # number of data points
+  distances_to_center <- numeric(n)  # to store distances
+
+  for (i in 1:n) {
+    # Get the index of the assigned cluster for point i
+    cluster_index <- labels[i]
+    
+    # Get the center of the assigned cluster
+    center <- centers[cluster_index, ]
+    
+    # Compute the distance from point i to its assigned cluster center
+    distances_to_center[i] <- sqrt(sum((X[i, ] - center)^2))
+  }
+  
+  return(distances_to_center)
+}
+
 ```
 
 
