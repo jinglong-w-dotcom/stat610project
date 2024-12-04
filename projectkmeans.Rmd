@@ -23,13 +23,47 @@ compute_centers <- function(X, cluster_assignments, K) {
 ```
 
 ```{r}
-compute_distances_to_center
+# Function to compute distances from each point to the center of its assigned cluster
+compute_distances_to_center <- function(X, labels, centers) {
+  n <- nrow(X)  # number of data points
+  distances_to_center <- numeric(n)  # to store distances
+
+  for (i in 1:n) {
+    # Get the index of the assigned cluster for point i
+    cluster_index <- labels[i]
+    
+    # Get the center of the assigned cluster
+    center <- centers[cluster_index, ]
+    
+    # Compute the distance from point i to its assigned cluster center
+    distances_to_center[i] <- sqrt(sum((X[i, ] - center)^2))
+  }
+  
+  return(distances_to_center)
+}
+
+```
+
+```{r}
+# Example usage
+set.seed(123)
+X <- matrix(rnorm(200), ncol = 2)  # 100 points, 2 features
+K <- 3
+labels <- sample(1:K, size = nrow(X), replace = TRUE)  # Random cluster assignments
+centers <- matrix(c(1, 1, -1, -1, 0, 0), ncol = 2, byrow = TRUE)  # Example centers
+
+# Compute distances from each point to the center of its assigned cluster
+distances_to_center <- compute_distances_to_center(X, labels, centers)
+
+# View the distances
+print(distances_to_center)
 ```
 
 
 
+
 ```{r}
-k_means <- function(X, k, initial_clusters = NULL, max_iters = 100, tol = 1e-4) {
+k_means <- function(X, K, initial_clusters = NULL, max_iters = 100, tol = 1e-4) {
   # Number of samples
   n <- nrow(X)
   
@@ -44,10 +78,12 @@ k_means <- function(X, k, initial_clusters = NULL, max_iters = 100, tol = 1e-4) 
   
   for (i in 1:max_iters) {
     # Compute distances from each point to the center of its cluster
-    distances <- as.matrix(dist(rbind(X, centers)))[1:n, (n+1):(n+k)]
+    distances <- as.matrix(dist(rbind(X, centers)))[1:n, (n+1):(n+K)]
     
     # Assign each point to the nearest center
     labels <- apply(distances, 1, which.min)
+    
+    new_centers <- compute_centers(X, labels, K)
     
     # Check for convergence (if centers do not change much)
     if (sum((new_centers - centers)^2) < tol) {
@@ -57,7 +93,37 @@ k_means <- function(X, k, initial_clusters = NULL, max_iters = 100, tol = 1e-4) 
     centers <- new_centers
   }
   
-  return(list(centers = centers, labels = labels))
+  return(list(centers = centers, clusters = labels))
 }
 ```
+
+```{r}
+set.seed(2)
+x <- matrix(rnorm(50 * 2), ncol = 2)
+x[1:25, 1] <- x[1:25, 1] + 3
+x[1:25, 2] <- x[1:25, 2] - 4
+
+km.out <- k_means(X = x, K= 2, max_iters = 1000)
+```
+
+
+```{r}
+par(mfrow = c(1, 2))
+plot(x, col = (km.out$clusters + 1),
+main = "K-Means Clustering Results with K = 2",
+xlab = "", ylab = "", pch = 20, cex = 2)
+points(km.out$centers, col = 'red', pch = 3, cex = 2) 
+```
+```{r}
+km.out <- k_means(X = x, K= 3, max_iters = 1000)
+plot(x, col = (km.out$clusters + 1),
+main = "K-Means Clustering Results with K = 3",
+xlab = "", ylab = "", pch = 20, cex = 2)
+```
+
+
+
+
+
+
 
