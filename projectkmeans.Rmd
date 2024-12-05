@@ -12,21 +12,27 @@ knitr::opts_chunk$set(echo = TRUE)
 # Compute centers for each cluster
 compute_centers <- function(X, cluster_assignments, K) {
   centers <- matrix(NA, nrow = K, ncol = ncol(X))
+  n <- nrow(X)  # number of data points
   for (k in 1:K) {
     # Get the points in cluster k
     cluster_points <- X[cluster_assignments == k, , drop = FALSE]
-    # Compute the mean for each feature (column)
-    centers[k, ] <- colMeans(cluster_points, na.rm = TRUE)
+    if (nrow(cluster_points) > 0) {
+      # Compute the mean for each feature (column)
+      centers[k, ] <- colMeans(cluster_points, na.rm = TRUE)
+    }else{
+      # Reinitialize center for the empty cluster (randomly choose a point from the sample      points)
+      centers[k, ] <- X[sample(1:n, 1), ]
+    }
   }
   return(centers)
 }
 ```
 
 ```{r}
-# Function to compute distances from each point to the center of its assigned cluster
-compute_distances_to_center <- function(X, labels, centers) {
+# Function to compute Within-Cluster Sum of Squares, i.e. double the sum of squared distances from each point to the center of its assigned cluster
+WCSS <- function(X, labels, centers) {
   n <- nrow(X)  # number of data points
-  distances_to_center <- numeric(n)  # to store distances
+  squared_dist <- numeric(n)  # to store result
 
   for (i in 1:n) {
     # Get the index of the assigned cluster for point i
@@ -36,33 +42,22 @@ compute_distances_to_center <- function(X, labels, centers) {
     center <- centers[cluster_index, ]
     
     # Compute the distance from point i to its assigned cluster center
-    distances_to_center[i] <- sqrt(sum((X[i, ] - center)^2))
+    squared_dist[i] <- sqrt(sum((X[i, ] - center)^2))
   }
   
-  return(distances_to_center)
+  result <- 2 * sum(squared_dist)
+  
+  return(result)
 }
 
 ```
 
-```{r}
-# Example usage
-set.seed(123)
-X <- matrix(rnorm(200), ncol = 2)  # 100 points, 2 features
-K <- 3
-labels <- sample(1:K, size = nrow(X), replace = TRUE)  # Random cluster assignments
-centers <- matrix(c(1, 1, -1, -1, 0, 0), ncol = 2, byrow = TRUE)  # Example centers
-
-# Compute distances from each point to the center of its assigned cluster
-distances_to_center <- compute_distances_to_center(X, labels, centers)
-
-# View the distances
-print(distances_to_center)
-```
 
 
 
 
 ```{r}
+library(animation)
 k_means <- function(X, K, initial_clusters = NULL, max_iters = 100, tol = 1e-4) {
   # Number of samples
   n <- nrow(X)
@@ -76,6 +71,7 @@ k_means <- function(X, K, initial_clusters = NULL, max_iters = 100, tol = 1e-4) 
     centers <- compute_centers(X, initial_clusters, K)
   }
   
+  saveGIF({
   for (i in 1:max_iters) {
     # Compute distances from each point to the center of its cluster
     distances <- as.matrix(dist(rbind(X, centers)))[1:n, (n+1):(n+K)]
@@ -83,6 +79,12 @@ k_means <- function(X, K, initial_clusters = NULL, max_iters = 100, tol = 1e-4) 
     # Assign each point to the nearest center
     labels <- apply(distances, 1, which.min)
     
+    # Plot current cluster assignments
+    plot(X, col = labels, pch = 16, xlab = 'Feature 1', ylab = 'Feature 2', main = paste('Iteration', i))
+    points(centers, col = 'red', pch = 3, cex = 2) # Plot centers
+    Sys.sleep(0.5) # Pause for visualization
+    
+    #Recompute centers
     new_centers <- compute_centers(X, labels, K)
     
     # Check for convergence (if centers do not change much)
@@ -91,34 +93,28 @@ k_means <- function(X, K, initial_clusters = NULL, max_iters = 100, tol = 1e-4) 
     }
     
     centers <- new_centers
+    wcss <- WCSS(X, labels, centers)
   }
+  }, movie.name = "kmeans_progress.gif")
   
-  return(list(centers = centers, clusters = labels))
+  return(list(centers = centers, clusters = labels, "Within-Cluster Sum of Squares" = wcss))
 }
 ```
 
 ```{r}
 set.seed(2)
-x <- matrix(rnorm(50 * 2), ncol = 2)
-x[1:25, 1] <- x[1:25, 1] + 3
-x[1:25, 2] <- x[1:25, 2] - 4
-
-km.out <- k_means(X = x, K= 2, max_iters = 1000)
+x <- matrix(rnorm(500), ncol = 2)
 ```
 
 
+
 ```{r}
-par(mfrow = c(1, 2))
+km.out <- k_means(X = x, K=15 , max_iters = 1000)
 plot(x, col = (km.out$clusters + 1),
-main = "K-Means Clustering Results with K = 2",
+main = "K-Means Clustering Results with K = 15",
 xlab = "", ylab = "", pch = 20, cex = 2)
-points(km.out$centers, col = 'red', pch = 3, cex = 2) 
-```
-```{r}
-km.out <- k_means(X = x, K= 3, max_iters = 1000)
-plot(x, col = (km.out$clusters + 1),
-main = "K-Means Clustering Results with K = 3",
-xlab = "", ylab = "", pch = 20, cex = 2)
+points(km.out$centers, col = 'red', pch = 3, cex = 2)
+km.out$`Within-Cluster Sum of Squares`
 ```
 
 
