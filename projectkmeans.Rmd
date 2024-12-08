@@ -1,0 +1,220 @@
+---
+title: "projectkmeans"
+output: html_document
+date: "2024-11-19"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Compute centers for each cluster
+compute_centers <- function(X, cluster_assignments, K) {
+  centers <- matrix(NA, nrow = K, ncol = ncol(X))
+  n <- nrow(X)  # number of data points
+  
+  # Reinitialize center for the empty cluster (randomly choose a point from the sample points)
+  for (i in 1:K) {
+    if (!i %in% cluster_assignments) {
+      freq_table <- table(cluster_assignments)
+      repeated_elements <- names(freq_table[freq_table > 1])
+      random_element <- sample(repeated_elements, 1)
+      random_index <- sample(which(cluster_assignments == random_element), 1)
+      cluster_assignments[random_index] <- i
+      }
+  }
+  
+  for (k in 1:K) {
+    # Get the points in cluster k
+    cluster_points <- X[cluster_assignments == k, , drop = FALSE]
+    # Compute the mean for each feature (column)
+    centers[k, ] <- colMeans(cluster_points, na.rm = TRUE)
+  }
+  return(centers)
+}
+```
+
+```{r}
+# Function to compute Within-Cluster Sum of Squares, i.e. double the sum of squared distances from each point to the center of its assigned cluster
+WCSS <- function(X, labels, centers) {
+  n <- nrow(X)  # number of data points
+  squared_dist <- numeric(n)  # to store result
+
+  for (i in 1:n) {
+    # Get the index of the assigned cluster for point i
+    cluster_index <- labels[i]
+    
+    # Get the center of the assigned cluster
+    center <- centers[cluster_index, ]
+    
+    # Compute the distance from point i to its assigned cluster center
+    squared_dist[i] <- sum((X[i, ] - center)^2)
+  }
+  
+  result <- 2 * sum(squared_dist)
+  
+  return(result)
+}
+```
+
+
+
+
+
+```{r}
+library(animation)
+k_means <- function(X, K, initial_clusters = NULL, max_iters = 100, tol = 1e-6, optimal_simu = 100) {
+  # Number of samples
+  n <- nrow(X)
+  if(n < K){
+    stop("The number of cluster centers is greater than the number of data points.")
+  }
+  
+  if(nrow(X) == 0 || ncol(X) == 0){
+    stop("Input dataset is empty.")
+  }
+  
+  if(any(is.na(X))){
+    stop("Input dataset contains missing values.")
+  }
+  
+  if(!is.numeric(X)){
+    stop("Input dataset contains non-numeric values.")
+  }
+  
+    total_wcss <- rep(NA, optimal_simu)
+    total_labels <- list()
+    total_centers <- list()
+    
+    for (simulation in 1:optimal_simu) {
+      total_labels[[simulation]] <- list()
+      total_centers[[simulation]] <- list()
+      
+      # Initialize centers
+      if (is.null(initial_clusters)) {
+        # Randomly assign a cluster number to each observation
+        initial_clusters <- sample(1:K, size = n, replace = TRUE)
+        centers <- compute_centers(X, initial_clusters, K)
+        } else {
+          centers <- compute_centers(X, initial_clusters, K)
+          }
+      
+      for (i in 1:max_iters) {
+        # Compute distances from each point to the center of its cluster
+        distances <- as.matrix(dist(rbind(X, centers)))[1:n, (n+1):(n+K), drop = FALSE]
+
+        # Assign each point to the nearest center
+        labels <- apply(distances, 1, which.min)
+        
+        #store thedata of labels and center points
+        total_labels[[simulation]][[i]] <- labels
+        total_centers[[simulation]][[i]] <- centers
+        
+        #Recompute centers
+        new_centers <- compute_centers(X, labels, K)
+        
+        # Check for convergence (if centers do not change much)
+        if (sum((new_centers - centers)^2) < tol) {
+          break
+          }
+        
+        centers <- new_centers
+        #new_wcss <- WCSS(X, labels, centers)
+      }
+      
+      total_wcss[simulation] <- WCSS(X, labels, centers)
+      
+    }
+    index <- which.min(total_wcss)
+
+    list_cluster <- total_labels[[index]]
+    list_centers <- total_centers[[index]]
+      
+    optimal_clusters <- lapply(total_labels, function(sublist) tail(sublist, 1)[[1]])
+    optimal_centers <- lapply(total_centers, function(sublist) tail(sublist, 1)[[1]])
+  
+    clusters <- tail(total_labels[[index]], 1)[[1]]
+    centers <- tail(total_centers[[index]], 1)[[1]]
+    
+    return(list(centers = centers, clusters = clusters, optimal_centers = optimal_centers, optimal_clusters = optimal_clusters, total_wcss = total_wcss, list_cluster = list_cluster, list_centers = list_centers, "Within-Cluster Sum of Squares" = total_wcss[index]))
+}
+```
+
+
+```{r}
+K_means_progresses <- function(klist, X){
+  total_labels <- klist[["list_cluster"]]
+  total_centers <- klist[["list_centers"]]
+  library(animation)
+  saveGIF({
+     # Plot cluster assignments
+    for (i in 1:length(total_labels)) {
+      current_wcss <- round(WCSS(X, total_labels[[i]], total_centers[[i]]), 2)
+      plot(X, col = total_labels[[i]], pch = 16, xlab = 'Feature 1', ylab = 'Feature 2', main = paste("Within-cluster variation is", current_wcss))
+      legend("topright", legend = paste("Iterations:", i), bty = "n", cex = 1.2, col = "black")
+      points(total_centers[[i]], col = 'red', pch = 3, cex = 2) # Plot centers
+      Sys.sleep(0.5) # Pause for visualization
+      }
+  }, movie.name = "kmeans_progress.gif")
+}
+```
+
+
+```{r}
+set.seed(2)
+x <- matrix(rnorm(500), ncol = 2)
+```
+
+
+
+```{r}
+km.out <- k_means(X = x, K=15 , max_iters = 1000)
+par(mfcol = c(1, 1))
+plot(x, col = km.out[["clusters"]], pch = 16, xlab = 'Feature 1', ylab = 'Feature 2', main = paste("Within-cluster variation is", round(km.out$`Within-Cluster Sum of Squares`, 2)))
+legend("topright", legend = paste("optimal simulation"), bty = "n", cex = 1.2, col = "black")
+points(km.out[["centers"]], col = 'red', pch = 3, cex = 2) # Plot centers
+K_means_progresses(km.out, x)
+
+#Since the initial position affects the final result, multiple simulations are performed to get the optimal result
+par(mfcol = c(1, 2))
+for (i in 1:4) {
+  current_wcss <- round(km.out[["total_wcss"]][[i]],2)
+  plot(x, col = km.out[["optimal_clusters"]][[i]], pch = 16, xlab = 'Feature 1', ylab = 'Feature 2', main = paste("Within-cluster variation is", current_wcss))
+  legend("topright", legend = paste("Simulation:", i), bty = "n", cex = 1.2, col = "black")
+  points(km.out[["optimal_centers"]][[i]], col = 'red', pch = 3, cex = 2) # Plot centers
+}
+
+hist(km.out[["total_wcss"]], breaks = 50, col = "green", xlab = "WCSS", xlim = c(min(km.out[["total_wcss"]]), max(km.out[["total_wcss"]])), main = "frequancy", freq = TRUE)
+summary(km.out[["total_wcss"]])
+
+```
+
+
+```{r}
+Kmeans_quality_measure <- function(K_range, data){
+  m <- rep(NA, K_range) #to record the sum of WCk in difference K value
+  par(mfcol = c(1, 3))
+  for (a in 1:K_range) {
+    result <- k_means(X = data, K = a)
+    m[a] <- round(result$`Within-Cluster Sum of Squares`, 2)
+    
+    plot(data, col = result[["clusters"]], pch = 16, xlab = 'Feature 1', ylab = 'Feature 2', main = paste("Within-cluster variation is", round(result$`Within-Cluster Sum of Squares`, 2)))
+    legend("topright", legend = paste("K = ", a), bty = "n", cex = 1.2, col = "black")
+    points(result[["centers"]], col = 'red', pch = 3, cex = 2) # Plot centers
+  }
+  
+  k_value <- 1:K_range
+  par(mfcol = c(1, 1))
+  plot(k_value, m, type = "b", col = "blue", pch = 16, xlab = "value of K", ylab = "Within-Cluster Sum of Squares")
+  return(m)
+}
+
+Kmeans_quality_measure(9, x)
+
+```
+
+
+
+
+
