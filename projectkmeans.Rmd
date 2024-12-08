@@ -14,22 +14,16 @@ compute_centers <- function(X, cluster_assignments, K) {
   centers <- matrix(NA, nrow = K, ncol = ncol(X))
   n <- nrow(X)  # number of data points
   
-  # Reinitialize center for the empty cluster (randomly choose a point from the sample points)
-  for (i in 1:K) {
-    if (!i %in% cluster_assignments) {
-      freq_table <- table(cluster_assignments)
-      repeated_elements <- names(freq_table[freq_table > 1])
-      random_element <- sample(repeated_elements, 1)
-      random_index <- sample(which(cluster_assignments == random_element), 1)
-      cluster_assignments[random_index] <- i
-      }
-  }
-  
   for (k in 1:K) {
     # Get the points in cluster k
     cluster_points <- X[cluster_assignments == k, , drop = FALSE]
-    # Compute the mean for each feature (column)
-    centers[k, ] <- colMeans(cluster_points, na.rm = TRUE)
+    if (nrow(cluster_points) > 0) {
+      # Compute the mean for each feature (column)
+      centers[k, ] <- colMeans(cluster_points, na.rm = TRUE)
+    }else{
+      # Reinitialize center for the empty cluster (randomly choose a point from the sample      points)
+      centers[k, ] <- X[sample(1:n, 1), ]
+    }
   }
   return(centers)
 }
@@ -58,10 +52,6 @@ WCSS <- function(X, labels, centers) {
 }
 ```
 
-
-
-
-
 ```{r}
 library(animation)
 k_means <- function(X, K, initial_clusters = NULL, max_iters = 100, tol = 1e-6, optimal_simu = 100) {
@@ -87,6 +77,7 @@ k_means <- function(X, K, initial_clusters = NULL, max_iters = 100, tol = 1e-6, 
     total_labels <- list()
     total_centers <- list()
     
+    #The initial cluster can affect the final result. Running the algorithm multiple times from different random initial configurations, we can select the optimal result, but this optimal result does not mean that the WCSS of this result is minimized
     for (simulation in 1:optimal_simu) {
       total_labels[[simulation]] <- list()
       total_centers[[simulation]] <- list()
