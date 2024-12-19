@@ -278,7 +278,7 @@ K_means_progresses <- function(klist, X){
 }
 ```
 
-- plot a optimal result of k-means cluster
+- From 100 simulations, select the result with the smallest WCSS as the optimal simulation and plot the final results.
 ```{r}
 set.seed(2)
 x <- matrix(rnorm(500), ncol = 2)
@@ -298,9 +298,9 @@ K_means_progresses(km.out, x)
 
 ```
 
-- Show the different results obtained from the four times simulation.
+- Show the different results obtained from the 100 times simulation. We can know that each simulation can get different k-means outcome, and its WCSS value is not the same. This is because the initial random assignment points affect the k-means final result.
 
-- Draw the histogram of WCSS obtained from 100 simulations. The WCSS's distribution is close to normal distribution because of CLT.
+- Plot the histogram of WCSS value obtained from 100 simulations. The WCSS's distribution is close to normal distribution because of CLT.
 ```{r}
 #Since the initial position affects the final result, multiple simulations are performed 
 #to get the optimal result
@@ -362,7 +362,7 @@ Kmeans_quality_measure(9, x)
 
 ```
 conclusion:
-As the k value increases, WCSS becomes smaller and smaller.
+As the k value increases, WCSS value becomes smaller.
 
 ##Test
 
